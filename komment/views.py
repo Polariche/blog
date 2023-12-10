@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 from komment.models import GithubCode, Comment
 from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
+from rest_framework_swagger.views import get_swagger_view
 
 from komment.serializers import *
 
@@ -75,9 +76,9 @@ class UsacoCommentView(APIView):
         repo, path = get_repo_path(ch, prog)
 
         code = GithubCode.objects.get(repo=repo, branch=branch, path=path)
-        comments = Comment.objects.get(code=code)
+        comments = Comment.objects.filter(code=code)
 
-        return JsonResponse(self.serializer(comments).data, safe=False)
+        return JsonResponse(self.serializer(comments, many=True).data, safe=False)
 
     def delete(self, request, ch, prog):
         # DELETE
