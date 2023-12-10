@@ -2,83 +2,87 @@ from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 from django.core import serializers
 
+from rest_framework import generics, mixins
+from rest_framework.views import APIView
 from komment.models import GithubCode, Comment
+from rest_framework.renderers import JSONRenderer
+from rest_framework.response import Response
+
+from komment.serializers import *
 
 import json
 # Create your views here.
 
-def usaco_code_raw(request, ch, prog):
+def get_repo_path(ch, prog):
     repo = "polariche/algorithms"
     path = f"USACO/USACO_Training/{ch}/{prog}.cpp"
 
-    if request.method == 'POST':
-        # POST
-        branch = request.POST.get('branch', 'main')
+    return repo, path
 
-        code = GithubCode.objects.create(repo=repo, branch=branch, path=path)
+class UsacoGithubCodeView(APIView):
+    serializer = GithubCodeDetailedSerializer
 
-        # TODO integrity check (500 response)
+    def post(self, request, ch, prog):
+        branch = request.POST.get('branch', None)
+        repo, path = get_repo_path(ch, prog)
 
-        return HttpResponse()
-
-    if request.method == 'GET':
-        # GET
-        branch = request.GET.get('branch', 'main')
+        if branch is None:
+            code = GithubCode.objects.create(repo=repo, path=path)
+        else:
+            code = GithubCode.objects.create(repo=repo, branch=branch, path=path)
         
-        code = GithubCode.objects.get(repo=repo, branch=branch, path=path)
-        # if code doesn't exist, return 404
+        code = GithubCode.objects.get(repo=repo, path=path)
+        return JsonResponse(self.serializer(code).data, safe=False)
 
-        return HttpResponse(code.get(), content_type="text/plain")
+    def get(self, request, ch, prog):
+        repo, path = get_repo_path(ch, prog)
+        code = GithubCode.objects.get(repo=repo, path=path)
+        
+        return JsonResponse(self.serializer(code).data, safe=False)
 
-
-    if request.method == 'DELETE':
+    def delete(self, request, ch, prog):
         # DELETE
         branch = request.DELETE.get('branch', None)
 
         if branch is None:
             GithubCode.objects.get(repo=repo, path=path).delete()
-            # if code doesn't exist, return 404
         else:
             GithubCode.objects.get(repo=repo, branch=branch, path=path).delete()
-            # if code doesn't exist, return 404
         return HttpResponse()
 
-    
-def usaco_comments(request, ch, prog):
-    repo = "polariche/algorithms"
-    path = f"USACO/USACO_Training/{ch}/{prog}.cpp"
 
-    if request.method == 'POST':
-        # POST
-        # TODO : replace main branch with actual commit name
+class UsacoCommentView(APIView):
+    serializer = CommentSerializer
+
+    def post(self, request, ch, prog):
         branch = request.POST.get('branch', 'main')
         start = request.POST.get('start')
         end = request.POST.get('end')
         content = request.POST.get('content')
 
-        print(branch, start, end, content)
+        repo, path = get_repo_path(ch, prog)
 
         code = GithubCode.objects.get(repo=repo, branch=branch, path=path)
-        # if code doesn't exist, return 404
 
         Comment.objects.create(code=code, start=start, end=end, content=content)
+        comments = Comment.objects.get(code=code)
 
-        return HttpResponse()
+        return JsonResponse(self.serializer(comments).data, safe=False)
 
-    if request.method == 'GET':
+    def get(self, request, ch, prog):
         # GET
         branch = request.GET.get('branch', 'main')
+        repo, path = get_repo_path(ch, prog)
 
         code = GithubCode.objects.get(repo=repo, branch=branch, path=path)
-        comments = Comment.objects.filter(code=code)
-        comments_json = json.loads(serializers.serialize('json', comments, fields=("start", "end", "content")))
-        
-        return JsonResponse(comments_json, safe=False)
+        comments = Comment.objects.get(code=code)
 
+        return JsonResponse(self.serializer(comments).data, safe=False)
 
-    if request.method == 'DELETE':
+    def delete(self, request, ch, prog):
         # DELETE
         branch = request.DELETE.get('branch', None)
+        repo, path = get_repo_path(ch, prog)
 
         code = None
         if branch is None:
@@ -89,6 +93,7 @@ def usaco_comments(request, ch, prog):
         Comment.objects.filter(code=code).delete()
         
         return HttpResponse()
+        
 
     
     

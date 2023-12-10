@@ -6,7 +6,7 @@ from abc import *
 # Create your models here.
 class Code(models.Model):
     subclasses = []
-    
+
     def __str__(self):
         for subclass in Code.subclasses:
             scls = getattr(self, subclass)
@@ -28,7 +28,7 @@ class GithubCode(Code):
     Code.subclasses.append("githubcode")
 
     repo = models.CharField(max_length=100)
-    branch = models.CharField(max_length=100)
+    branch = models.CharField(max_length=100, default='main')
     path = models.CharField(max_length=100)
 
     class Meta:
